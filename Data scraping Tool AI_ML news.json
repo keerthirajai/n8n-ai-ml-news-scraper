@@ -1,0 +1,264 @@
+{
+  "name": "Data scraping Tool AI/ML news",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        0
+      ],
+      "id": "50ca9f5f-ffb8-48cd-8b3d-dd777b21bb92",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://feeds.feedburner.com/kdnuggets",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        0
+      ],
+      "id": "82931be7-3e99-4ad4-aefc-660bbe086325",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Keywords to detect\nconst aiKeywords = ['AI', 'machine learning', 'neural', 'deep learning', 'LLM', 'generative'];\n\n// Track keyword frequencies\nlet keywordCounts = {};\nlet totalItems = items.length;\n\nconst analyzedItems = items.map(item => {\n  const title = item.json.title || '';\n  const rawDate = item.json.isoDate || item.json.pubDate || '';\n  const link = item.json.link || '';\n\n  // --- Step 1: Format date ---\n  let formattedDate = rawDate;\n  if (rawDate) {\n    const dateObj = new Date(rawDate);\n    let options = { \n      year: 'numeric', \n      month: 'short', \n      day: '2-digit', \n      hour: '2-digit', \n      minute: '2-digit', \n      hour12: true \n    };\n    formattedDate = dateObj.toLocaleString('en-US', options);\n  }\n\n  // --- Keyword Detection ---\n  let keywordsFound = [];\n  aiKeywords.forEach(keyword => {\n    if (title.toLowerCase().includes(keyword.toLowerCase())) {\n      keywordsFound.push(keyword);\n      keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1;\n    }\n  });\n\n  const analysisNote = keywordsFound.length > 0\n    ? `Contains ${keywordsFound.length} AI keyword(s): ${keywordsFound.join(', ')}`\n    : 'No AI keywords detected';\n\n  return {\n    json: {\n      Title: title,\n      PubDate: formattedDate,\n      KeywordsFound: keywordsFound.join(', '),\n      AnalysisNote: analysisNote,\n      Link: link\n    }\n  };\n});\n\n// --- Step 2: Add Summary Row ---\nconst summary = {\n  json: {\n    Title: 'Summary',\n    PubDate: new Date().toLocaleString('en-US', { \n      year: 'numeric', \n      month: 'short', \n      day: '2-digit', \n      hour: '2-digit', \n      minute: '2-digit', \n      hour12: true \n    }),\n    KeywordsFound: '',\n    AnalysisNote: `Processed ${totalItems} items. Keyword frequencies: ${JSON.stringify(keywordCounts)}`,\n    Link: ''\n  }\n};\n\nreturn [...analyzedItems, summary];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "c96aabb2-5532-4142-8525-43ae1f7ce627",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_DOCUMENT_ID_HERE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_NAME_HERE",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $json.Title }}",
+            "PubDate": "={{ $json.PubDate }}",
+            "KeywordsFound": "={{ $json.KeywordsFound }}",
+            "AnalysisNote": "={{ $json.AnalysisNote }}",
+            "Link": "={{ $json.Link }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PubDate",
+              "displayName": "PubDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "KeywordsFound",
+              "displayName": "KeywordsFound",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AnalysisNote",
+              "displayName": "AnalysisNote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        784,
+        0
+      ],
+      "id": "8975a532-f307-485d-8dbf-7ba3192a3866",
+      "name": "Append row in sheet"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "87a65a5c-39a5-49f7-9e0c-c92b138312da",
+              "leftValue": "={{ $json.KeywordsFound }}",
+              "rightValue": "=",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "ac5aff7a-762e-4add-a4b6-f5e6ead4ff49",
+              "leftValue": "={{ $json.Title }}",
+              "rightValue": "=Summary",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "3e5d9952-61d3-46c5-be44-0a10ae545c3f",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_DOCUMENT_ID_HERE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_NAME_HERE",
+          "mode": "name"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        608,
+        0
+      ],
+      "id": "de17ace3-5dd3-4baa-b90b-d17699e19a1e",
+      "name": "Clear sheet"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "17696a63-101c-4009-9221-d7deda8db72b",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "a89c99c847c2c8ecdf3ee3a735a70abcbdfe3121734d15f8f6b3b5ff98685f24"
+  },
+  "id": "n42MdsyIKi2ndlgo",
+  "tags": []
+}
